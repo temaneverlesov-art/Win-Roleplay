@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Win Roleplay — Приморск</title>
+<style>
+:root{--bg:#eef2f7;--card:#fff;--tx:#10182b;--mu:#5b6578;--ac:#08a37f;--ac2:#e0356f;--gd:#c98a00;--bd:#d8dfeb;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0f1a;--card:#141b2e;--tx:#e8eefc;--mu:#8e9ab5;--ac:#19e6b0;--ac2:#ff4d8d;--gd:#ffc857;--bd:#243050;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b0f1a;--card:#141b2e;--tx:#e8eefc;--mu:#8e9ab5;--ac:#19e6b0;--ac2:#ff4d8d;--gd:#ffc857;--bd:#243050;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:720px;margin-inline:auto;padding:12px 12px 40px}
+h1{font-size:20px;margin:0;letter-spacing:.5px}
+h1 b{color:var(--ac)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sub{color:var(--mu);font-size:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:10px}
+.hud{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.big{font-size:18px;font-weight:700}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;border-radius:6px}
+.lbl{font-size:12px;color:var(--mu);display:flex;justify-content:space-between}
+.tabs{display:flex;gap:6px;margin:10px 0;overflow-x:auto}
+.tabs button{flex:1;white-space:nowrap}
+button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:9px 12px;cursor:pointer}
+button:hover{border-color:var(--ac)}
+button.on{background:var(--ac);color:#04251c;border-color:var(--ac);font-weight:700}
+button.pr{background:var(--ac2);border-color:var(--ac2);color:#fff;font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.loc{text-align:center;padding:12px 6px}
+.loc span{display:block;font-size:26px}
+.acts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.acts button{text-align:left}
+.log div{padding:6px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.log div:last-child{border:0}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--bd);color:var(--mu);margin-right:4px}
+#toast{position:sticky;bottom:10px;background:var(--ac);color:#04251c;border-radius:12px;padding:10px 12px;font-weight:600;margin-top:8px;display:none}
+.ov{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:9}
+.ov .card{max-width:380px;width:100%;text-align:center}
+input{font:inherit;width:100%;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);margin:10px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+<div class="top"><div><h1><b>WIN</b> ROLEPLAY</h1><div class="sub">Приморск · макс. скорость авто 170 км/ч</div></div><button id="rst">Сброс</button></div>
+<div id="hud" class="card"></div>
+<div class="tabs" id="tabs"></div>
+<div id="view"></div>
+<div id="toast"></div>
+<div class="ov" id="ov" style="display:none"><div class="card"><h1><b>WIN</b> ROLEPLAY</h1><p class="sub">Добро пожаловать в Приморск! Придумай имя персонажа.</p><input id="nm" maxlength="20" placeholder="Имя Фамилия"><button class="pr" id="go" style="width:100%">Войти в город</button></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const R=n=>n.toLocaleString("ru-RU")+" ₽";
+const def=()=>({name:"",lvl:1,exp:0,cash:5000,bank:0,hp:100,food:80,mood:50,wanted:0,fac:null,rank:0,rep:0,lic:false,drv:false,phone:false,cars:[],n:0,cd:{},gz:true,log:[],home:null,biz:[],q:{},jail:0,trip:null,st:{job:0,shift:0,trips:0,heist:0,jail:0}});
+let S=def(),tab="city",open=null;
+try{const j=JSON.parse(localStorage.getItem("winrp"));if(j&&j.name)S=Object.assign(def(),j)}catch(e){}
+const save=()=>{try{localStorage.setItem("winrp",JSON.stringify(S))}catch(e){}};
+const cl=(v)=>Math.max(0,Math.min(100,v));
+function say(m){S.log.unshift(m);S.log=S.log.slice(0,40);const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(say.t);say.t=setTimeout(()=>t.style.display="none",2500)}
+function addExp(e){S.exp+=e;while(S.exp>=S.lvl*6){S.exp-=S.lvl*6;S.lvl++;S.cash+=S.lvl*500;say("🎉 Уровень "+S.lvl+"! Бонус "+R(S.lvl*500))}}
+function tick(d=1){S.n+=d;S.food=cl(S.food-3*d);S.mood=cl(S.mood-1);if(S.food<=0)S.hp=Math.max(1,S.hp-5)}
+function cd(k,n){if((S.cd[k]||0)>S.n){say("⏳ Ещё рано, подожди "+(S.cd[k]-S.n)+" действ.");return false}S.cd[k]=S.n+n;return true}
+function pay(c){if(S.cash<c){say("❌ Не хватает денег");return false}S.cash-=c;return true}
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function buyCar(n,p){if(S.cars.includes(n))return say("Эта машина уже в гараже");if(pay(p)){S.cars.push(n);say("🚗 Куплено: "+n)}}
+function drink(n,p,m){if(pay(p)){S.mood=cl(S.mood+m);say("🍸 "+n+" — настроение растёт")}}
+
+const LOC=[
+{n:"Мэрия",i:"🏛️",a:[
+ ["Пособие +300 ₽",()=>{if(cd("dole",5)){S.cash+=300;say("Получено пособие 300 ₽")}}],
+ ["Лицензия на оружие −5 000 ₽",()=>{if(S.lic)return say("Лицензия уже есть");if(pay(5000)){S.lic=true;say("📜 Лицензия на оружие выдана")}}]]},
+{n:"Банк",i:"🏦",a:[
+ ["Положить всё на счёт",()=>{S.bank+=S.cash;say("Внесено "+R(S.cash));S.cash=0}],
+ ["Снять всё со счёта",()=>{S.cash+=S.bank;say("Снято "+R(S.bank));S.bank=0}]]},
+{n:"Центральный рынок",i:"🛒",a:[
+ ["Подработка грузчиком +150–300 ₽",()=>{const c=rnd(150,300);S.cash+=c;S.food=cl(S.food-6);addExp(1);say("📦 Заработано "+R(c))}],
+ ["Купить телефон −3 000 ₽ (GPS)",()=>{if(S.phone)return say("Телефон уже есть");if(pay(3000)){S.phone=true;say("📱 Телефон куплен, GPS включён")}}]]},
+{n:"Шаурмичка",i:"🌯",a:[
+ ["Шаурма −250 ₽ (+40 сытости)",()=>{if(pay(250)){S.food=cl(S.food+40);say("🌯 Вкусно!")}}],
+ ["Кола −80 ₽ (+10 сытости)",()=>{if(pay(80)){S.food=cl(S.food+10);say("🥤 Освежился")}}]]},
+{n:"Клуб «Роза»",i:"🌹",a:[
+ ["Пиво −150 ₽",()=>drink("Пиво",150,8)],["Водка −300 ₽",()=>drink("Водка",300,15)],["Текила −350 ₽",()=>drink("Текила",350,18)],
+ ["Сигареты −200 ₽",()=>drink("Сигареты",200,6)],["Сигары −500 ₽",()=>drink("Сигары",500,20)]]},
+{n:"Казино",i:"🎰",a:[
+ ["Рулетка: ставка 1 000 ₽",()=>{if(!pay(1000))return;if(Math.random()<.47){S.cash+=2000;say("🎰 Выигрыш +1 000 ₽")}else say("🎰 Проигрыш −1 000 ₽")}],
+ ["Колесо фортуны (раз в «час»)",()=>{if(!cd("wheel",10))return;const p=[0,500,1000,2500,5000,10000][rnd(0,5)];S.cash+=p;say(p?"🎡 Колесо дало "+R(p):"🎡 Колесо: не повезло")}]]},
+{n:"Автосалон",i:"🚘",a:[
+ ["Мопед −8 000 ₽",()=>buyCar("Мопед",8000)],["Скутер −15 000 ₽",()=>buyCar("Скутер",15000)],
+ ["ВАЗ-2107 −60 000 ₽",()=>buyCar("ВАЗ-2107",60000)],["BMW M5 −400 000 ₽",()=>buyCar("BMW M5",400000)]]},
+{n:"Автошкола",i:"🚦",a:[["Получить права −2 000 ₽",()=>{if(S.drv)return say("Права уже есть");if(pay(2000)){S.drv=true;addExp(2);say("🪪 Права получены")}}]]},
+{n:"Автовокзал",i:"🚌",a:[["Таксовать +400–700 ₽ (нужны права)",()=>{if(!S.drv)return say("Сначала получи права");const c=rnd(400,700);S.cash+=c;S.food=cl(S.food-5);addExp(2);say("🚕 Рейс: "+R(c))}]]},
+{n:"Тир",i:"🎯",a:[["Постреляйте −200 ₽",()=>{if(pay(200)){addExp(rnd(1,2));S.mood=cl(S.mood+5);say("🎯 Меткость растёт")}}]]},
+{n:"Больница",i:"🏥",a:[["Лечение −300 ₽ (здоровье 100)",()=>{if(pay(300)){S.hp=100;say("💉 Вы здоровы")}}]]},
+{n:"Полиция",i:"🚓",a:[["Снять розыск −2 000 ₽ за звезду",()=>{if(!S.wanted)return say("Розыска нет");if(pay(2000*S.wanted)){S.wanted=0;say("✅ Розыск снят")}}]]},
+{n:"Улица",i:"🥊",a:[["Подраться с прохожим",()=>{if(S.gz)return say("🟢 Зелёная зона: драться нельзя");S.wanted=Math.min(5,S.wanted+1);if(Math.random()<.5){S.cash+=300;addExp(2);say("🥊 Победа! +300 ₽, розыск +1")}else{S.hp=Math.max(1,S.hp-20);say("🤕 Проигрыш, −20 здоровья")}}]]}
+];
+const FAC=[
+{id:"gov",n:"Правительство",i:"🏛️",lv:5,b:900,nw:1,r:["Секретарь","Помощник","Советник","Министр","Мэр"]},
+{id:"pol",n:"Полиция",i:"🚓",lv:3,b:700,nw:1,r:["Рядовой","Сержант","Лейтенант","Капитан","Начальник"]},
+{id:"med",n:"Скорая помощь",i:"🚑",lv:2,b:600,r:["Интерн","Фельдшер","Врач","Хирург","Главврач"]},
+{id:"army",n:"Армия",i:"🪖",lv:4,b:800,nw:1,r:["Рядовой","Ефрейтор","Сержант","Лейтенант","Полковник"]},
+{id:"smi",n:"СМИ",i:"📺",lv:3,b:650,r:["Стажёр","Репортёр","Редактор","Продюсер","Директор"]},
+{id:"gro",n:"Grove Street",i:"🟢",lv:2,b:900,c:1,r:["Новичок","Бро","Гангстер","Ветеран","Лидер"]},
+{id:"bal",n:"Ballas",i:"🟣",lv:2,b:900,c:1,r:["Новичок","Бро","Гангстер","Ветеран","Лидер"]},
+{id:"maf",n:"Мафия",i:"🕴️",lv:8,b:1600,c:1,r:["Шестёрка","Боец","Бригадир","Консильери","Дон"]},
+{id:"fsb",n:"ФСБ",i:"🕶️",lv:10,b:1800,nw:1,r:["Стажёр","Агент","Оперативник","Майор","Директор"]},
+{id:"gai",n:"ГИБДД",i:"🚦",lv:4,b:750,nw:1,r:["Инспектор","Сержант","Лейтенант","Капитан","Начальник"]},
+{id:"fsin",n:"ФСИН",i:"⛓️",lv:6,b:850,nw:1,r:["Надзиратель","Старший","Смотритель","Майор","Начальник тюрьмы"]},
+{id:"mchs",n:"МЧС",i:"🚒",lv:3,b:700,r:["Спасатель","Пожарный","Старший расчёта","Командир","Начальник"]},
+{id:"vag",n:"Vagos",i:"🟡",lv:2,b:900,c:1,r:["Новичок","Бро","Гангстер","Ветеран","Лидер"]},
+{id:"azt",n:"Aztecas",i:"🔵",lv:2,b:900,c:1,r:["Новичок","Бро","Гангстер","Ветеран","Лидер"]},
+{id:"rif",n:"Rifa",i:"🔷",lv:2,b:900,c:1,r:["Новичок","Бро","Гангстер","Ветеран","Лидер"]},
+{id:"bik",n:"Ночные волки",i:"🏍️",lv:6,b:1300,c:1,r:["Проспект","Байкер","Сержант клуба","Вице-президент","Президент"]},
+{id:"yak",n:"Якудза",i:"🐉",lv:8,b:1600,c:1,r:["Кобун","Воин","Капитан","Вакагасира","Оябун"]}
+];
+const fac=id=>FAC.find(f=>f.id===id);
+const JOBS=[
+{n:"Грузчик",i:"📦",lv:1,p:[150,300],f:6,e:1},{n:"Курьер",i:"🛵",lv:1,p:[200,350],f:6,e:1},
+{n:"Таксист",i:"🚕",lv:2,p:[400,700],f:5,e:2,drv:1},{n:"Рыбак",i:"🎣",lv:2,p:[300,600],f:7,e:2},
+{n:"Механик",i:"🔧",lv:3,p:[500,850],f:8,e:2},{n:"Шахтёр",i:"⛏️",lv:4,p:[700,1100],f:12,e:3},
+{n:"Инкассатор",i:"💼",lv:5,p:[900,1400],f:8,e:3,lic:1},{n:"Дальнобойщик",i:"🚛",lv:6,p:[1200,1800],f:12,e:3,drv:1}];
+const HOUSES=[
+{n:"Комната в общаге на Набережной",i:"🛏️",p:50000,m:15},{n:"Квартира в центре",i:"🏢",p:250000,m:30},
+{n:"Дом у моря",i:"🏡",p:1200000,m:50},{n:"Особняк на холме",i:"🏰",p:6000000,m:80}];
+const BIZ=[
+{n:"Ларёк „Чайка“",i:"🏪",p:80000,inc:400},{n:"Кофейня „Маяк“",i:"☕",p:300000,inc:1500},
+{n:"Автомойка „Волна“",i:"🧼",p:700000,inc:3200},{n:"АЗС „Приморье“",i:"⛽",p:1200000,inc:6000},
+{n:"Клуб „Две розы“",i:"🌹",p:5000000,inc:25000}];
+const tot=()=>S.cash+S.bank;
+const ROUTES=[{n:'Приморск → Северск',s:3,p:4000,lv:6},{n:'Приморск → Южногорск',s:5,p:8500,lv:7},{n:'Приморск → Столица',s:8,p:17000,lv:8}];
+const HEIST=[{n:'Ларёк на рынке',i:'🏪',lv:1,r:.3,p:[800,1500]},{n:'Магазин у дома',i:'🛒',lv:3,r:.4,p:[2000,4000]},{n:'Банкомат',i:'🏧',lv:4,r:.45,p:[3000,6000]},{n:'Ювелирный «Блеск»',i:'💎',lv:6,r:.55,p:[8000,15000]},{n:'Банк Приморска',i:'🏦',lv:9,r:.65,p:[30000,60000],lic:1}];
+const BOTS=[['Артём_Primorsk',12400],['Lisa_Rose',9800],['Волк',7600],['Mr_Don',5400],['Нова',3100],['Бродяга',1500],['Салага',800]];
+const score=()=>S.lvl*1000+Math.floor(tot()/1000)+S.st.job*5+S.st.shift*10+S.st.trips*40+S.st.heist*30;
+const board=()=>BOTS.map(b=>({n:b[0],s:b[1]})).concat([{n:S.name,s:score(),me:1}]).sort((a,b)=>b.s-a.s);
+const place=()=>board().findIndex(x=>x.me)+1;
+function tripStart(i){if(S.trip)return say('Ты уже в рейсе');const r=ROUTES[i];if(S.lvl<r.lv)return say('Нужен уровень '+r.lv);if(!S.drv)return say('Нужны права');S.trip={r:i,s:0};say('🚛 Рейс начат: '+r.n)}
+function tripGo(){const t=S.trip;if(!t)return;const r=ROUTES[t.r];S.food=cl(S.food-8);t.s++;const x=Math.random();if(x<.15){const f=Math.min(S.cash,500);S.cash-=f;say('🚔 Штраф ГИБДД −'+R(f))}else if(x<.25)say('🔧 Прокол колеса, потерял время');else say('🛣️ Участок '+t.s+'/'+r.s+' пройден');if(t.s>=r.s){S.cash+=r.p;S.st.trips++;addExp(r.lv);S.trip=null;say('✅ Рейс завершён: +'+R(r.p))}}
+function tripAbort(){S.trip=null;say('Рейс отменён')}
+function heist(i){const h=HEIST[i];if(S.lvl<h.lv)return say('Нужен уровень '+h.lv);if(h.lic&&!S.lic)return say('Нужна лицензия на оружие (мэрия)');S.wanted=Math.min(5,S.wanted+1);if(Math.random()>h.r){const c=rnd(h.p[0],h.p[1]);S.cash+=c;S.st.heist++;addExp(h.lv+2);say('🕶️ '+h.n+': добыча '+R(c)+', розыск +1')}else{const f=Math.round(S.cash*.2);S.cash-=f;S.jail=6+S.wanted*3;S.wanted=0;S.st.jail++;S.trip=null;say('🚨 Поймали! Конфискация '+R(f)+', срок '+S.jail+' действ.')}}
+function jailDo(k){if(k==='w'){S.jail-=2;S.cash+=50;say('🔨 Мастерская: +50 ₽')}else if(k==='s'){S.jail-=3;say('⏳ Отсидел часть срока')}else{if(!pay(S.jail*500))return;S.jail=0;say('💸 Охрана договорилась')}if(S.jail<=0){S.jail=0;say('🔓 Ты на свободе')}}
+function tripHtml(){const t=S.trip;if(t){const r=ROUTES[t.r];return`<div class='card'><b>🚛 ${r.n}</b><div class='sub'>Участок ${t.s}/${r.s} · оплата ${R(r.p)}</div><div class='bar'><i style='width:${t.s/r.s*100}%;background:var(--ac)'></i></div><div class='acts'><button class='pr' data-tg='1'>Ехать дальше</button><button data-ta='1'>Отменить рейс</button></div></div>`}return`<div class='card'><b>🚛 Дальнобой</b><div class='sub'>Нужны права. Рейс — несколько участков, в пути бывают штрафы.</div><div class='acts'>${ROUTES.map((r,i)=>`<button data-tr='${i}' ${S.lvl<r.lv?'disabled':''}>${r.n} · ур. ${r.lv} · ${R(r.p)}</button>`).join('')}</div></div>`}
+const QUESTS=[
+{n:"Первые шаги",d:"Получи права и купи телефон",ok:()=>S.drv&&S.phone,pg:()=>(S.drv?"✔":"✘")+" права, "+(S.phone?"✔":"✘")+" телефон",r:2000,e:3},
+{n:"Свой угол",d:"Купи любое жильё",ok:()=>S.home!==null,pg:()=>S.home!==null?"✔":"пока нет",r:5000,e:3},
+{n:"Трудяга",d:"Отработай 10 подработок",ok:()=>S.st.job>=10,pg:()=>Math.min(10,S.st.job)+"/10",r:3000,e:4},
+{n:"На службе",d:"Вступи во фракцию и отработай 5 смен",ok:()=>S.st.shift>=5,pg:()=>Math.min(5,S.st.shift)+"/5",r:6000,e:5},
+{n:"Растём в званиях",d:"Достигни 3-го звания",ok:()=>S.fac&&S.rank>=2,pg:()=>S.fac?"звание "+(S.rank+1)+"/3":"нет фракции",r:10000,e:6},
+{n:"Хозяин Приморска",d:"Купи свой бизнес",ok:()=>S.biz.length>0,pg:()=>S.biz.length?"✔":"пока нет",r:15000,e:6},
+{n:"Колесо фортуны",d:"Накопи 100 000 ₽ в сумме",ok:()=>tot()>=100000,pg:()=>R(Math.min(tot(),100000))+" / 100 000 ₽",r:8000,e:5},
+{n:"Миллионер",d:"Накопи 1 000 000 ₽ в сумме",ok:()=>tot()>=1000000,pg:()=>Math.min(100,Math.round(tot()/10000))+"%",r:100000,e:15},
+{n:"Легенда города",d:"Достигни 10 уровня",ok:()=>S.lvl>=10,pg:()=>"ур. "+S.lvl+"/10",r:50000,e:10},
+{n:'Дальнобойщик',d:'Заверши 3 рейса',ok:()=>S.st.trips>=3,pg:()=>Math.min(3,S.st.trips)+'/3',r:12000,e:6},
+{n:'Рисковый',d:'Успешно ограбь 3 раза',ok:()=>S.st.heist>=3,pg:()=>Math.min(3,S.st.heist)+'/3',r:10000,e:6},
+{n:'В тройке лучших',d:'Войди в топ-3 рейтинга',ok:()=>place()<=3,pg:()=>'место #'+place(),r:30000,e:8}];
+function work(i){const j=JOBS[i];if(S.lvl<j.lv)return say("Нужен уровень "+j.lv);if(j.drv&&!S.drv)return say("Нужны права");if(j.lic&&!S.lic)return say("Нужна лицензия на оружие");const c=rnd(j.p[0],j.p[1]);S.cash+=c;S.food=cl(S.food-j.f);S.st.job++;addExp(j.e);say(j.i+" "+j.n+": +"+R(c))}
+function buyHome(i){if(S.home===i)return say("Ты уже живёшь здесь");if(pay(HOUSES[i].p)){S.home=i;say("🔑 Новое жильё: "+HOUSES[i].n)}}
+function rest(){if(S.home===null)return say("Сначала купи жильё");if(!cd("rest",3))return;S.hp=100;S.mood=cl(S.mood+HOUSES[S.home].m);say("😴 Отдохнул дома")}
+function buyBiz(i){if(S.biz.some(b=>b.i===i))return say("Бизнес уже твой");if(pay(BIZ[i].p)){S.biz.push({i,t:S.n});say("💼 Куплен бизнес: "+BIZ[i].n)}}
+const acc=()=>S.biz.reduce((s,b)=>s+Math.round(Math.min(30,S.n-b.t)*BIZ[b.i].inc/10),0);
+function collect(){const a=acc();if(!a)return say("Касса пока пуста");S.biz.forEach(b=>b.t=S.n);S.cash+=a;say("💰 Выручка: +"+R(a))}
+function claimQ(i){const q=QUESTS[i];if(S.q[i]||!q.ok())return;S.q[i]=1;S.cash+=q.r;addExp(q.e);say("🗺️ Квест «"+q.n+"» выполнен: +"+R(q.r))}
+function join(id){const f=fac(id);if(S.lvl<f.lv)return say("Нужен уровень "+f.lv);if(f.nw&&S.wanted)return say("С розыском не берут");S.fac=id;S.rank=0;S.rep=0;say("Принят во фракцию «"+f.n+"»")}
+function shift(){const f=fac(S.fac);let p=f.b*(S.rank+1);if(f.c){p=Math.round(p*1.3);S.wanted=Math.min(5,S.wanted+1)}S.cash+=p;S.rep++;S.st.shift++;S.food=cl(S.food-10);addExp(f.c?3:2);tick(3);say(f.i+" "+(f.c?"Задание":"Смена")+" выполнена: +"+R(p))}
+function rankUp(){if(S.rep<(S.rank+1)*3)return say("Мало репутации");S.rank++;S.rep=0;say("⭐ Новое звание: "+fac(S.fac).r[S.rank])}
+
+function bar(l,v,c){return`<div><div class="lbl"><span>${l}</span><span>${Math.round(v)}</span></div><div class="bar"><i style="width:${v}%;background:${c}"></i></div></div>`}
+function hud(){const f=S.fac?fac(S.fac):null;
+$("#hud").innerHTML=`<div class="row"><div><div class="big">${esc(S.name)}</div><div class="sub">Ур. ${S.lvl} · ${f?f.i+" "+f.n+", "+f.r[S.rank]:"Без фракции"}</div></div><div style="text-align:right"><div class="big" style="color:var(--gd)">${R(S.cash)}</div><div class="sub">Счёт: ${R(S.bank)}</div></div></div>
+<div class="hud" style="margin-top:10px">${bar("Здоровье",S.hp,"var(--ac2)")}${bar("Сытость",S.food,"var(--gd)")}${bar("Настроение",S.mood,"var(--ac)")}${bar("Опыт "+S.exp+"/"+S.lvl*6,S.exp/(S.lvl*6)*100,"#6c8cff")}</div>
+<div class="sub" style="margin-top:8px">${S.jail>0?'⛓️ В тюрьме: '+S.jail+' действ. · ':''}Розыск: ${"★".repeat(S.wanted)||"нет"}${"☆".repeat(5-S.wanted)}</div>`}
+function act(fn,jl){if(S.jail>0&&!jl)return say('⛓️ Ты в тюрьме: сначала отсиди срок (вкладка «Криминал»)');fn();tick();save();render()}
+function render(){hud();
+const T=[["city","🏙️ Город"],["work","💼 Работа"],["fac","🛡️ Фракции"],["est","🏠 Имущество"],["quest","🗺️ Квесты"],["crime","🕶️ Криминал"],["rate","🏆 Рейтинг"],["me","🎒 Профиль"],["log","📜 Журнал"]];
+$("#tabs").innerHTML=T.map(t=>`<button data-t="${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</button>`).join("");
+const v=$("#view");
+if(tab==="city"){v.innerHTML=`<div class="grid">${LOC.map((l,i)=>`<button class="loc ${open===i?"on":""}" data-l="${i}"><span>${l.i}</span>${l.n}</button>`).join("")}</div>`+(open!==null?`<div class="card" style="margin-top:10px"><b>${LOC[open].i} ${LOC[open].n}</b><div class="acts">${LOC[open].a.map((a,j)=>`<button data-a="${j}">${a[0]}</button>`).join("")}</div></div>`:`<p class="sub">Выбери место в Приморске.</p>`)}
+else if(tab==="fac"){const cur=S.fac?fac(S.fac):null;
+v.innerHTML=(cur?`<div class="card"><b>${cur.i} ${cur.n}</b><div class="sub">Звание: ${cur.r[S.rank]} · репутация ${S.rep}/${(S.rank+1)*3} · ${R(cur.b*(S.rank+1))} за смену${cur.c?" (+30%, растёт розыск)":""}</div><div class="acts"><button class="pr" data-s="1">${cur.c?"Выполнить задание":"Начать смену"}</button><button data-s="2" ${S.rank>=4?"disabled":""}>Повышение</button><button data-s="3">Уволиться</button></div></div>`:"")+
+FAC.map(f=>`<div class="card row"><div><b>${f.i} ${f.n}</b><div class="sub">От ур. ${f.lv} · ${f.r[0]} → ${f.r[4]}</div>${f.c?'<span class="tag">ОПГ</span>':""}${f.nw?'<span class="tag">без розыска</span>':""}</div><button data-j="${f.id}" ${S.fac===f.id?"disabled":""}>Вступить</button></div>`).join("")}
+else if(tab==="work"){v.innerHTML=tripHtml()+`<p class="sub">Подработки тратят сытость и дают опыт.</p>`+JOBS.map((j,i)=>`<div class="card row"><div><b>${j.i} ${j.n}</b><div class="sub">Ур. ${j.lv} · ${R(j.p[0])}–${R(j.p[1])}${j.drv?" · права":""}${j.lic?" · лицензия":""}</div></div><button data-w="${i}" ${S.lvl<j.lv?"disabled":""}>Работать</button></div>`).join("")}
+else if(tab==="est"){v.innerHTML=`<div class="card"><b>🏠 Жильё</b><div class="sub">${S.home!==null?"Сейчас: "+HOUSES[S.home].n:"Пока без крыши над головой"}</div><div class="acts"><button class="pr" data-rest="1">Отдохнуть дома</button></div></div>`+HOUSES.map((h,i)=>`<div class="card row"><div><b>${h.i} ${h.n}</b><div class="sub">${R(h.p)} · отдых +${h.m} к настроению</div></div><button data-h="${i}" ${S.home===i?"disabled":""}>${S.home===i?"Здесь живёшь":"Купить"}</button></div>`).join("")+`<div class="card row"><b>💼 Бизнесы</b><button class="pr" data-c="1">Забрать ${R(acc())}</button></div>`+BIZ.map((b,i)=>`<div class="card row"><div><b>${b.i} ${b.n}</b><div class="sub">${R(b.p)} · +${R(b.inc)} за ~10 действий</div></div><button data-b="${i}" ${S.biz.some(x=>x.i===i)?"disabled":""}>${S.biz.some(x=>x.i===i)?"Твой":"Купить"}</button></div>`).join("")}
+else if(tab==="crime"){v.innerHTML=S.jail>0?`<div class='card'><b>⛓️ Тюрьма Приморска</b><div class='sub'>Осталось: ${S.jail} действ.</div><div class='acts'><button data-jl='w'>Работать в мастерской (−2, +50 ₽)</button><button data-jl='s'>Отсиживать (−3)</button><button class='pr' data-jl='b'>Подкупить охрану −${R(S.jail*500)}</button></div></div>`:`<p class='sub'>Ограбления приносят деньги и розыск. Провал — тюрьма и конфискация 20% наличных.</p>`+HEIST.map((h,i)=>`<div class='card row'><div><b>${h.i} ${h.n}</b><div class='sub'>Ур. ${h.lv} · риск ${Math.round(h.r*100)}% · ${R(h.p[0])}–${R(h.p[1])}${h.lic?' · лицензия':''}</div></div><button data-hi='${i}' ${S.lvl<h.lv?'disabled':''}>Грабить</button></div>`).join('')}
+else if(tab==="rate"){v.innerHTML=`<p class='sub'>Очки: уровень, капитал, работа, смены, рейсы и ограбления. Твоё место: #${place()}</p>`+board().map((x,i)=>`<div class='card row' style='${x.me?'border-color:var(--ac)':''}'><b>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(x.n)}</b><span>${x.s.toLocaleString('ru-RU')}</span></div>`).join('')}
+else if(tab==="quest"){v.innerHTML=QUESTS.map((q,i)=>`<div class="card row"><div><b>${q.n}</b><div class="sub">${q.d} · ${q.pg()}</div><span class="tag">${R(q.r)} + ${q.e} оп.</span></div><button data-q="${i}" class="${S.q[i]?"":"pr"}" ${S.q[i]||!q.ok()?"disabled":""}>${S.q[i]?"Получено":"Забрать"}</button></div>`).join("")}
+else if(tab==="me"){v.innerHTML=`<div class="card"><div class="row"><span>Зелёная зона (нельзя драться)</span><button data-g="1">${S.gz?"Вкл":"Выкл"}</button></div></div>
+<div class="card"><span class="tag">${S.phone?"📱 Телефон + GPS":"нет телефона"}</span><span class="tag">${S.drv?"🪪 Права":"нет прав"}</span><span class="tag">${S.lic?"📜 Лицензия на оружие":"нет лицензии"}</span><div style="margin-top:8px"><b>Гараж:</b> ${S.cars.length?S.cars.join(", "):"пусто"}</div></div>`}
+else{v.innerHTML=`<div class="card log">${S.log.length?S.log.map(x=>`<div>${esc(x)}</div>`).join(""):'<span class="sub">Пока пусто</span>'}</div>`}}
+document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+if(d.t){tab=d.t;render()}
+else if(d.l!==undefined){open=open===+d.l?null:+d.l;render()}
+else if(d.a!==undefined)act(LOC[open].a[+d.a][1]);
+else if(d.j)act(()=>join(d.j));
+else if(d.s)act(d.s==="1"?shift:d.s==="2"?rankUp:()=>{S.fac=null;S.rank=0;S.rep=0;say("Вы уволились")});
+else if(d.tg)act(tripGo);
+else if(d.ta)act(tripAbort);
+else if(d.tr)act(()=>tripStart(+d.tr));
+else if(d.hi)act(()=>heist(+d.hi));
+else if(d.jl)act(()=>jailDo(d.jl),1);
+else if(d.w)act(()=>work(+d.w));
+else if(d.h)act(()=>buyHome(+d.h));
+else if(d.b)act(()=>buyBiz(+d.b));
+else if(d.c)act(collect);
+else if(d.rest)act(rest);
+else if(d.q)act(()=>claimQ(+d.q));
+else if(d.g)act(()=>{S.gz=!S.gz;say(S.gz?"🟢 Зелёная зона включена":"🔴 Зелёная зона выключена")});
+});
+$("#rst").onclick=()=>{if(confirm("Начать игру заново?")){S=def();save();start()}};
+function start(){S.st=Object.assign({job:0,shift:0,trips:0,heist:0,jail:0},S.st);if(!S.name){$("#ov").style.display="flex";$("#go").onclick=()=>{const n=$("#nm").value.trim();if(!n)return;S.name=n;$("#ov").style.display="none";say("Добро пожаловать в Приморск, "+n+"!");save();render()}}else $("#ov").style.display="none";render()}
+start();
+</script>
+</body>
+</html>
